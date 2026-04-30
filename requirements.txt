@@ -1,10 +1,10 @@
-flask==3.0.3
-flask-sqlalchemy==3.1.1
+Flask==3.0.3
 flask-login==0.6.3
-werkzeug==3.0.3
-stripe==10.5.0
-groq==0.9.0
+flask-sqlalchemy==3.1.1
+python-dotenv==1.0.1
 requests==2.32.3
 beautifulsoup4==4.12.3
-python-dotenv==1.0.1
-gunicorn
+stripe==9.8.0
+groq==0.9.0
+httpx==0.27.0
+gunicorn==22.0.0
