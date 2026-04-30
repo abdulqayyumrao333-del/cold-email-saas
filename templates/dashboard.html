@@ -1,0 +1,484 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — MailForge{% endblock %}
+{% block content %}
+
+<style>
+  .dash-bg {
+    min-height: calc(100vh - 62px);
+    background:
+      radial-gradient(ellipse 50% 40% at 80% 0%, rgba(79,70,229,.05) 0%, transparent 60%),
+      var(--bg);
+    padding: 40px 0 60px;
+  }
+
+  /* INPUT CARD */
+  .form-card { background: white; border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.05); }
+  .form-card-header { padding: 22px 28px; border-bottom: 1px solid var(--border); background: var(--bg); }
+
+  /* RESULT AREA */
+  .result-card { background: white; border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.05); }
+
+  /* USAGE WIDGET */
+  .usage-widget { background: white; border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+
+  /* SUBJECT HIGHLIGHT */
+  .subject-box {
+    background: var(--primary-light); border: 1px solid #c7d2fe;
+    border-radius: var(--radius-sm); padding: 14px 16px; margin-bottom: 16px;
+  }
+
+  /* BODY BOX */
+  .body-box {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 18px;
+  }
+
+  /* SKELETON */
+  .sk-line { height: 14px; border-radius: 6px; margin-bottom: 10px; }
+  .sk-line:last-child { margin-bottom: 0; }
+
+  /* LOADING STEPS */
+  .step-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; font-size: 14px; color: var(--muted); transition: color .3s; }
+  .step-item.active { color: var(--primary); font-weight: 600; }
+  .step-item.done { color: var(--success); }
+  .step-dot {
+    width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--border);
+    display: flex; align-items: center; justify-content: center; font-size: 10px;
+    flex-shrink: 0; transition: all .3s;
+  }
+  .step-item.active .step-dot { border-color: var(--primary); background: var(--primary-light); }
+  .step-item.done .step-dot { border-color: var(--success); background: #dcfce7; color: var(--success); }
+
+  /* COPY BTN */
+  .copy-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 14px; border-radius: 8px; font-size: 13px; font-weight: 600;
+    border: 1.5px solid var(--border); background: white; cursor: pointer;
+    transition: all .2s; color: var(--text);
+  }
+  .copy-btn:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
+  .copy-btn.copied { border-color: var(--success); color: var(--success); background: #dcfce7; }
+
+  /* LIMIT BANNER */
+  .limit-banner {
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+    padding: 16px 20px; border-radius: var(--radius); margin-bottom: 24px;
+    background: linear-gradient(135deg, #fffbeb, #fef3c7);
+    border: 1px solid #fde68a;
+  }
+
+  /* TEXTAREA */
+  textarea.input { resize: vertical; min-height: 80px; line-height: 1.6; }
+
+  @media(max-width:768px) {
+    .dash-grid { grid-template-columns: 1fr !important; }
+  }
+</style>
+
+<div class="dash-bg">
+  <div class="container">
+
+    <!-- Page Header -->
+    <div class="anim-up" style="margin-bottom:28px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;">
+        <div>
+          <h1 style="font-size:26px;font-weight:800;letter-spacing:-.03em;margin:0 0 4px;">Email Generator</h1>
+          <p style="font-size:14px;color:var(--muted);margin:0;">Paste a URL → get a hyper-personalized cold email in seconds</p>
+        </div>
+        {% if is_free %}
+        <a href="{{ url_for('upgrade') }}" class="btn btn-primary btn-sm">
+          ✦ Upgrade to Pro
+        </a>
+        {% else %}
+        <span class="badge badge-pro" style="font-size:12px;padding:5px 12px;">✦ Pro — Unlimited Emails</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Limit Reached Banner -->
+    {% if is_free and user.emails_generated >= free_limit %}
+    <div class="limit-banner anim-up-1">
+      <div>
+        <div style="font-size:14px;font-weight:700;margin-bottom:3px;">⚡ You've used all 5 free emails</div>
+        <div style="font-size:13px;color:var(--muted);">Upgrade to Pro for unlimited generation. One-time $29.</div>
+      </div>
+      <a href="{{ url_for('upgrade') }}" class="btn btn-primary">Upgrade Now &rarr;</a>
+    </div>
+    {% endif %}
+
+    <!-- Main Grid -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start;" class="dash-grid">
+
+      <!-- ── LEFT: FORM + USAGE ── -->
+      <div style="display:flex;flex-direction:column;gap:20px;">
+
+        <!-- Form Card -->
+        <div class="form-card anim-up-1">
+          <div class="form-card-header">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="width:32px;height:32px;border-radius:8px;background:var(--primary-light);display:flex;align-items:center;justify-content:center;font-size:15px;">✉</div>
+              <div>
+                <div style="font-size:14px;font-weight:700;">Generate Cold Email</div>
+                <div style="font-size:12px;color:var(--muted);">Fill all 3 fields below</div>
+              </div>
+            </div>
+          </div>
+
+          <div style="padding:28px;">
+            <form id="email-form" style="display:flex;flex-direction:column;gap:20px;">
+
+              <div>
+                <label class="label" for="url">
+                  Company Website URL
+                  <span style="font-weight:400;color:var(--muted);font-size:12px;margin-left:4px;">*</span>
+                </label>
+                <input type="url" id="url" name="url" class="input"
+                       placeholder="https://company.com"
+                       {% if is_free and user.emails_generated >= free_limit %}disabled{% endif %}/>
+                <p style="font-size:12px;color:var(--muted);margin-top:6px;">We'll automatically scrape and analyze this page</p>
+              </div>
+
+              <div>
+                <label class="label" for="target_role">Target Role / Job Title</label>
+                <input type="text" id="target_role" name="target_role" class="input"
+                       placeholder="e.g. CEO, Head of Marketing, Founder"
+                       {% if is_free and user.emails_generated >= free_limit %}disabled{% endif %}/>
+              </div>
+
+              <div>
+                <label class="label" for="user_service">Your Service / Offer</label>
+                <input type="text" id="user_service" name="user_service" class="input"
+                       placeholder="e.g. Facebook Ads, Web Design, SaaS tool"
+                       {% if is_free and user.emails_generated >= free_limit %}disabled{% endif %}/>
+              </div>
+
+              {% if not (is_free and user.emails_generated >= free_limit) %}
+              <button type="submit" class="btn btn-accent btn-lg btn-full" id="submit-btn">
+                Generate Cold Email &rarr;
+              </button>
+              {% else %}
+              <a href="{{ url_for('upgrade') }}" class="btn btn-primary btn-lg btn-full">
+                ✦ Upgrade to generate more
+              </a>
+              {% endif %}
+
+            </form>
+          </div>
+        </div>
+
+        <!-- Usage Widget -->
+        <div class="usage-widget anim-up-2">
+          {% if is_free %}
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <div>
+              <div style="font-size:13px;font-weight:700;">Email Usage</div>
+              <div style="font-size:12px;color:var(--muted);">Free plan</div>
+            </div>
+            <span class="badge badge-free">Free</span>
+          </div>
+          <div class="progress-track" style="margin-bottom:8px;">
+            <div class="progress-fill {{ 'over' if user.emails_generated >= free_limit else '' }}" id="progress-fill"
+                 style="width:{{ [user.emails_generated / free_limit * 100, 100]|min|round }}%;"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:14px;">
+            <span id="usage-text"><span id="emails-used">{{ user.emails_generated }}</span> of {{ free_limit }} emails used</span>
+            <span id="emails-left-text">{{ [free_limit - user.emails_generated, 0]|max }} remaining</span>
+          </div>
+          <a href="{{ url_for('upgrade') }}" class="btn btn-outline btn-sm btn-full">
+            ✦ Upgrade for unlimited — $29 one-time
+          </a>
+          {% else %}
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:40px;height:40px;border-radius:10px;background:var(--primary-light);display:flex;align-items:center;justify-content:center;font-size:18px;">✦</div>
+            <div>
+              <div style="font-size:13px;font-weight:700;">Pro Plan — Active</div>
+              <div style="font-size:12px;color:var(--muted);">Unlimited email generation · {{ user.emails_generated }} generated so far</div>
+            </div>
+            <span class="badge badge-pro" style="margin-left:auto;">Pro</span>
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- Tips card -->
+        <div class="anim-up-3" style="background:var(--primary-light);border:1px solid #c7d2fe;border-radius:var(--radius);padding:16px 18px;">
+          <div style="font-size:13px;font-weight:700;color:var(--primary);margin-bottom:8px;">💡 Tips for best results</div>
+          <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:6px;">
+            {% for tip in ['Use the homepage or product page URL','Be specific with your service (not just "Marketing")','Try: CEO, Head of Product, VP Sales'] %}
+            <li style="font-size:12.5px;color:#3730a3;display:flex;align-items:center;gap:6px;"><span style="flex-shrink:0;">→</span> {{ tip }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+
+      </div>
+
+      <!-- ── RIGHT: OUTPUT ── -->
+      <div>
+
+        <!-- Empty State -->
+        <div id="state-idle" class="result-card anim-up-2" style="padding:52px 32px;text-align:center;">
+          <div style="width:64px;height:64px;border-radius:16px;background:var(--primary-light);display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 16px;">✉️</div>
+          <h3 style="font-size:17px;font-weight:700;margin:0 0 8px;">Your email will appear here</h3>
+          <p style="font-size:14px;color:var(--muted);line-height:1.65;margin:0 0 20px;max-width:300px;margin-left:auto;margin-right:auto;">Fill in the three fields on the left and click <strong>Generate</strong>. We'll scrape the website and craft a personalized email.</p>
+          <div style="display:flex;flex-direction:column;gap:8px;max-width:260px;margin:0 auto;">
+            {% for step in ['Paste the company URL','Add target role + your service','Click Generate Cold Email'] %}
+            <div style="display:flex;align-items:center;gap:10px;text-align:left;font-size:13px;color:var(--muted);">
+              <div style="width:22px;height:22px;border-radius:50%;background:var(--bg);border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;color:var(--muted);">{{ loop.index }}</div>
+              {{ step }}
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Loading State -->
+        <div id="state-loading" class="result-card" style="padding:32px;display:none;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid var(--border);">
+            <div class="spinner spinner-primary" style="width:20px;height:20px;border-width:2.5px;"></div>
+            <div>
+              <div style="font-size:14px;font-weight:700;">Generating your email...</div>
+              <div style="font-size:12px;color:var(--muted);">This takes 5–10 seconds</div>
+            </div>
+          </div>
+
+          <div id="loading-steps" style="display:flex;flex-direction:column;gap:2px;">
+            {% for s in ['Fetching website content','Analyzing company overview','Identifying opportunities','Crafting personalized email'] %}
+            <div class="step-item" id="step-{{ loop.index0 }}">
+              <div class="step-dot" id="step-dot-{{ loop.index0 }}">{{ loop.index }}</div>
+              <span>{{ s }}</span>
+            </div>
+            {% endfor %}
+          </div>
+
+          <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border);">
+            <div class="sk-line skeleton" style="width:60%;height:16px;margin-bottom:16px;"></div>
+            <div class="sk-line skeleton" style="width:100%;"></div>
+            <div class="sk-line skeleton" style="width:95%;"></div>
+            <div class="sk-line skeleton" style="width:88%;"></div>
+            <div class="sk-line skeleton" style="width:70%;"></div>
+          </div>
+        </div>
+
+        <!-- Error State -->
+        <div id="state-error" style="display:none;">
+          <div class="result-card" style="padding:28px;">
+            <div class="alert alert-error" style="margin-bottom:0;">
+              <span style="font-size:18px;flex-shrink:0;">⚠️</span>
+              <div>
+                <div style="font-weight:700;margin-bottom:3px;" id="error-title">Something went wrong</div>
+                <div id="error-msg" style="font-size:13px;line-height:1.5;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Result State -->
+        <div id="state-result" class="result-card" style="display:none;">
+
+          <!-- Result header -->
+          <div style="padding:18px 24px;border-bottom:1px solid var(--border);background:var(--bg);display:flex;align-items:center;justify-content:space-between;border-radius:var(--radius-lg) var(--radius-lg) 0 0;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:16px;">✅</span>
+              <div>
+                <div style="font-size:13px;font-weight:700;">Email Generated</div>
+                <div style="font-size:11.5px;color:var(--muted);" id="result-meta">AI-personalized · Ready to send</div>
+              </div>
+            </div>
+            <button class="copy-btn" id="copy-btn" onclick="copyAll()">
+              📋 Copy all
+            </button>
+          </div>
+
+          <div style="padding:24px;">
+
+            <!-- Subject -->
+            <div style="margin-bottom:20px;">
+              <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">📌 Subject Line</div>
+              <div class="subject-box">
+                <div style="font-size:15px;font-weight:700;color:var(--primary);line-height:1.4;" id="subject-out"></div>
+              </div>
+            </div>
+
+            <!-- Body -->
+            <div>
+              <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px;">✉️ Email Body</div>
+              <div class="body-box">
+                <div style="font-size:14px;line-height:1.8;color:var(--text);white-space:pre-wrap;" id="body-out"></div>
+              </div>
+            </div>
+
+            <!-- Footer actions -->
+            <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+              <span style="font-size:12px;color:var(--muted);" id="usage-footer"></span>
+              <div style="display:flex;gap:8px;">
+                <button class="copy-btn" onclick="copySubject()">Copy subject</button>
+                <button class="copy-btn" onclick="copyBody()">Copy body</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const STATES = ['idle','loading','error','result'];
+
+  function show(state) {
+    STATES.forEach(s => {
+      const el = $('state-' + s);
+      if (el) el.style.display = (s === state) ? 'block' : 'none';
+    });
+  }
+
+  // ── STEP ANIMATION ──
+  let stepTimer = null, stepIndex = 0;
+
+  function startSteps() {
+    stepIndex = 0;
+    updateStep(0);
+    stepTimer = setInterval(() => {
+      if (stepIndex < 3) {
+        markDone(stepIndex);
+        stepIndex++;
+        updateStep(stepIndex);
+      }
+    }, 2200);
+  }
+
+  function updateStep(i) {
+    for (let j = 0; j < 4; j++) {
+      const el = $('step-' + j);
+      const dot = $('step-dot-' + j);
+      if (!el) continue;
+      el.classList.remove('active', 'done');
+      if (j < i) { el.classList.add('done'); dot.textContent = '✓'; }
+      else if (j === i) { el.classList.add('active'); dot.textContent = j + 1; }
+      else { dot.textContent = j + 1; }
+    }
+  }
+
+  function markDone(i) {
+    const el = $('step-' + i);
+    const dot = $('step-dot-' + i);
+    if (el) { el.classList.remove('active'); el.classList.add('done'); }
+    if (dot) dot.textContent = '✓';
+  }
+
+  function stopSteps() {
+    if (stepTimer) { clearInterval(stepTimer); stepTimer = null; }
+    for (let i = 0; i < 4; i++) markDone(i);
+  }
+
+  // ── FORM SUBMIT ──
+  const form = $('email-form');
+  const submitBtn = $('submit-btn');
+
+  if (form) {
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+
+      const url = $('url').value.trim();
+      const role = $('target_role').value.trim();
+      const svc  = $('user_service').value.trim();
+
+      if (!url || !role || !svc) {
+        show('error');
+        $('error-title').textContent = 'All fields required';
+        $('error-msg').textContent = 'Please fill in all three fields: URL, target role, and your service.';
+        return;
+      }
+
+      show('loading');
+      startSteps();
+      if (submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '<span class="spinner"></span> Generating...'; }
+
+      const fd = new FormData();
+      fd.append('url', url); fd.append('target_role', role); fd.append('user_service', svc);
+
+      try {
+        const res  = await fetch('/generate', { method: 'POST', body: fd });
+        const data = await res.json();
+        stopSteps();
+
+        if (!res.ok || data.error) {
+          show('error');
+          const titles = {
+            limit_reached: '🔒 Free limit reached',
+            validation: 'Missing fields',
+            scrape: '🌐 Website unreachable',
+            ai: '🤖 AI generation failed',
+            config: '⚙️ Not configured',
+          };
+          $('error-title').textContent = titles[data.error] || 'Error';
+          if (data.error === 'limit_reached') {
+            $('error-msg').innerHTML = data.message + ' <a href="/upgrade" style="font-weight:700;color:var(--primary);text-decoration:none;">Upgrade to Pro &rarr;</a>';
+          } else {
+            $('error-msg').textContent = data.message;
+          }
+        } else {
+          $('subject-out').textContent = data.subject;
+          $('body-out').textContent    = data.body;
+
+          if (data.plan === 'free' && data.emails_left !== null) {
+            const used = data.emails_generated;
+            const left = data.emails_left;
+            $('usage-footer').textContent = `${used} / 5 emails used · ${left} remaining on free plan`;
+            // Update usage widget
+            const fill = $('progress-fill');
+            const usedEl = $('emails-used');
+            const leftText = $('emails-left-text');
+            if (fill) fill.style.width = Math.min(used / 5 * 100, 100) + '%';
+            if (fill && used >= 5) fill.classList.add('over');
+            if (usedEl) usedEl.textContent = used;
+            if (leftText) leftText.textContent = left + ' remaining';
+            $('result-meta').textContent = `${used}/5 free emails used · Copy and paste to send`;
+          } else {
+            $('usage-footer').textContent = '✦ Pro plan — unlimited emails';
+            $('result-meta').textContent = 'Pro · Unlimited · Copy and paste to send';
+          }
+
+          show('result');
+          $('state-result').classList.add('anim-up');
+        }
+      } catch (err) {
+        stopSteps();
+        show('error');
+        $('error-title').textContent = 'Network error';
+        $('error-msg').textContent = 'Could not connect to the server. Please refresh and try again.';
+      } finally {
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = 'Generate Cold Email &rarr;'; }
+      }
+    });
+  }
+
+  // ── COPY FUNCTIONS ──
+  async function copyAll() {
+    const subject = $('subject-out').textContent;
+    const body    = $('body-out').textContent;
+    await navigator.clipboard.writeText(`Subject: ${subject}\n\n${body}`);
+    const btn = $('copy-btn');
+    btn.textContent = '✓ Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.innerHTML = '📋 Copy all'; btn.classList.remove('copied'); }, 2000);
+  }
+  async function copySubject() {
+    await navigator.clipboard.writeText($('subject-out').textContent);
+    flashCopy(event.target, 'Subject copied!');
+  }
+  async function copyBody() {
+    await navigator.clipboard.writeText($('body-out').textContent);
+    flashCopy(event.target, 'Body copied!');
+  }
+  function flashCopy(btn, text) {
+    const orig = btn.textContent;
+    btn.textContent = '✓ ' + text;
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 2000);
+  }
+</script>
+
+{% endblock %}

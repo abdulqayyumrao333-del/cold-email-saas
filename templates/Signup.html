@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}Create Account — MailForge{% endblock %}
+{% block content %}
+
+<style>
+  .auth-bg {
+    min-height: calc(100vh - 62px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 24px;
+    background:
+      radial-gradient(ellipse 60% 50% at 70% 20%, rgba(79,70,229,.07) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 40% at 25% 80%, rgba(6,182,212,.05) 0%, transparent 60%),
+      var(--bg);
+  }
+  .auth-card { width:100%; max-width:440px; animation: fadeUp .4s ease both; }
+  .input-group { position: relative; }
+  .input-icon { position:absolute;left:13px;top:50%;transform:translateY(-50%);font-size:15px;color:#94a3b8;pointer-events:none; }
+  .input-group .input { padding-left: 38px; }
+  .strength-bar { height:3px; border-radius:999px; transition: width .3s, background .3s; }
+</style>
+
+<div class="auth-bg">
+  <div class="auth-card">
+
+    <!-- Logo + heading -->
+    <div style="text-align:center;margin-bottom:32px;">
+      <a href="{{ url_for('index') }}" class="logo" style="justify-content:center;margin-bottom:20px;display:flex;">
+        <div class="logo-box">✉</div>
+        MailForge
+      </a>
+      <h1 style="font-size:24px;font-weight:800;letter-spacing:-.03em;margin:0 0 6px;">Create your free account</h1>
+      <p style="font-size:14px;color:var(--muted);margin:0;">5 free emails · No credit card needed</p>
+    </div>
+
+    <!-- Value pills -->
+    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:24px;">
+      {% for v in ['✓ 5 free emails','✓ AI personalization','✓ Instant access'] %}
+      <span style="font-size:12px;font-weight:600;color:var(--primary);background:var(--primary-light);padding:4px 10px;border-radius:999px;">{{ v }}</span>
+      {% endfor %}
+    </div>
+
+    <!-- Card -->
+    <div class="card-elevated" style="padding:36px;">
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ 'error' if category == 'error' else 'success' }}">
+            <span>{{ '⚠️' if category == 'error' else '✓' }}</span>
+            <span>{{ message }}</span>
+          </div>
+        {% endfor %}
+      {% endwith %}
+
+      <form method="POST" action="{{ url_for('signup') }}" style="display:flex;flex-direction:column;gap:20px;">
+
+        <div>
+          <label class="label" for="email">Work email</label>
+          <div class="input-group">
+            <span class="input-icon">@</span>
+            <input type="email" id="email" name="email" class="input"
+                   placeholder="you@company.com" required autocomplete="email"/>
+          </div>
+        </div>
+
+        <div>
+          <label class="label" for="password">Password</label>
+          <div class="input-group">
+            <span class="input-icon">🔒</span>
+            <input type="password" id="password" name="password" class="input"
+                   placeholder="Min. 6 characters" required autocomplete="new-password"
+                   oninput="updateStrength(this.value)"/>
+          </div>
+          <!-- Password strength indicator -->
+          <div style="margin-top:8px;">
+            <div style="height:3px;background:var(--border);border-radius:999px;overflow:hidden;">
+              <div id="strength-fill" class="strength-bar" style="width:0;background:var(--danger);"></div>
+            </div>
+            <div id="strength-label" style="font-size:11.5px;color:var(--muted);margin-top:4px;"></div>
+          </div>
+        </div>
+
+        <div>
+          <label class="label" for="confirm_password">Confirm password</label>
+          <div class="input-group">
+            <span class="input-icon">✓</span>
+            <input type="password" id="confirm_password" name="confirm_password" class="input"
+                   placeholder="Repeat your password" required autocomplete="new-password"/>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-accent btn-lg btn-full" style="margin-top:4px;">
+          Create free account &rarr;
+        </button>
+
+        <p style="font-size:12px;color:var(--muted);text-align:center;margin:0;line-height:1.6;">
+          By signing up, you agree to our <a href="#" style="color:var(--primary);text-decoration:none;">Terms of Service</a>
+          and <a href="#" style="color:var(--primary);text-decoration:none;">Privacy Policy</a>.
+        </p>
+      </form>
+    </div>
+
+    <!-- Switch -->
+    <p style="text-align:center;font-size:14px;color:var(--muted);margin-top:20px;">
+      Already have an account?
+      <a href="{{ url_for('login') }}" style="color:var(--primary);font-weight:600;text-decoration:none;">Sign in</a>
+    </p>
+  </div>
+</div>
+
+<script>
+  function updateStrength(pw) {
+    const fill = document.getElementById('strength-fill');
+    const label = document.getElementById('strength-label');
+    if (!pw) { fill.style.width = '0'; label.textContent = ''; return; }
+    let score = 0;
+    if (pw.length >= 6) score++;
+    if (pw.length >= 10) score++;
+    if (/[A-Z]/.test(pw)) score++;
+    if (/[0-9]/.test(pw)) score++;
+    if (/[^A-Za-z0-9]/.test(pw)) score++;
+    const levels = [
+      { w:'20%', c:'#ef4444', t:'Too short' },
+      { w:'40%', c:'#f97316', t:'Weak' },
+      { w:'60%', c:'#f59e0b', t:'Fair' },
+      { w:'80%', c:'#22c55e', t:'Good' },
+      { w:'100%',c:'#16a34a', t:'Strong ✓' },
+    ];
+    const lvl = levels[Math.min(score - 1, 4)] || levels[0];
+    fill.style.width = lvl.w;
+    fill.style.background = lvl.c;
+    label.textContent = lvl.t;
+    label.style.color = lvl.c;
+  }
+</script>
+
+{% endblock %}
