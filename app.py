@@ -369,7 +369,10 @@ def stripe_webhook():
     return jsonify({'status': 'ok'})
 
 
+# ✅ ALWAYS RUN DB INIT (for Render)
+with app.app_context():
+    init_db(app)
+
+
 if __name__ == '__main__':
-    with app.app_context():
-        init_db(app)
     app.run(debug=True, port=5000)
